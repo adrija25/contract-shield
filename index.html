@@ -2,7 +2,11 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1.0"
+  >
 
   <title>Contract Shield | Qelvryn</title>
 
@@ -31,7 +35,9 @@
     <section>
       <p>Contract Intelligence, Made Clear</p>
 
-      <h1>Understand what you're agreeing to.</h1>
+      <h1>
+        Understand what you're agreeing to.
+      </h1>
 
       <p>
         Contract Shield helps you make sense of complicated agreements
@@ -40,28 +46,75 @@
       </p>
     </section>
 
+
     <section>
+
       <h2>Analyze your contract</h2>
 
       <p>
-        Paste the text of an agreement below. Contract Shield will help
-        identify important terms, obligations, dates, and clauses that
-        may deserve your attention.
+        Upload a PDF contract or paste the text of an agreement below.
+        Contract Shield will help identify important terms, obligations,
+        dates, financial commitments, and clauses that may deserve your
+        attention.
       </p>
+
 
       <form id="contract-form">
 
-        <label for="contract-text">
-          Contract or agreement text
-        </label>
+        <!-- PDF UPLOAD -->
 
-        <textarea
-          id="contract-text"
-          name="contract-text"
-          rows="18"
-          placeholder="Paste your contract text here..."
-          required
-        ></textarea>
+        <div class="upload-section">
+
+          <label for="contract-file">
+            Upload contract PDF
+          </label>
+
+          <input
+            type="file"
+            id="contract-file"
+            name="contract-file"
+            accept=".pdf,application/pdf"
+          >
+
+          <p class="upload-help">
+            PDF files only. Your document will be processed for analysis
+            and should not be permanently stored by Contract Shield.
+          </p>
+
+        </div>
+
+
+        <!-- DIVIDER -->
+
+        <div class="input-divider">
+          <span>OR</span>
+        </div>
+
+
+        <!-- TEXT INPUT -->
+
+        <div class="text-input-section">
+
+          <label for="contract-text">
+            Paste contract or agreement text
+          </label>
+
+          <textarea
+            id="contract-text"
+            name="contract-text"
+            rows="18"
+            maxlength="30000"
+            placeholder="Paste your contract text here..."
+          ></textarea>
+
+          <p class="text-limit">
+            Maximum 30,000 characters for pasted text.
+          </p>
+
+        </div>
+
+
+        <!-- ANALYZE BUTTON -->
 
         <button type="submit">
           Analyze Contract
@@ -69,48 +122,91 @@
 
       </form>
 
-      <p>
+
+      <!-- PRIVACY MESSAGE -->
+
+      <p class="privacy-note">
         For your privacy, avoid including information that is not
-        necessary for understanding the agreement.
+        necessary for understanding the agreement. Contract Shield
+        is designed to minimize unnecessary document retention.
       </p>
+
     </section>
 
+
     <section>
-      <h2>What Contract Shield looks for</h2>
+
+      <h2>
+        What Contract Shield looks for
+      </h2>
 
       <ul>
-        <li>Key obligations</li>
-        <li>Payment and financial commitments</li>
-        <li>Renewal and cancellation terms</li>
-        <li>Notice periods</li>
-        <li>Important dates and deadlines</li>
-        <li>Clauses that may deserve closer attention</li>
-        <li>Questions you may want to ask before agreeing</li>
+        <li>
+          Key obligations
+        </li>
+
+        <li>
+          Payment and financial commitments
+        </li>
+
+        <li>
+          Renewal and cancellation terms
+        </li>
+
+        <li>
+          Notice periods
+        </li>
+
+        <li>
+          Important dates and deadlines
+        </li>
+
+        <li>
+          Clauses that may deserve closer attention
+        </li>
+
+        <li>
+          Questions you may want to ask before agreeing
+        </li>
       </ul>
+
     </section>
 
+
     <section>
-      <h2>Important information</h2>
+
+      <h2>
+        Important information
+      </h2>
 
       <p>
         Contract Shield provides general informational explanations
         to help you better understand agreements. It does not provide
         legal advice, determine whether a contract or clause is legally
         valid or enforceable, or recommend whether you should sign an
-        agreement. For legal advice about your specific circumstances,
-        consider consulting a qualified legal professional.
+        agreement.
       </p>
+
+      <p>
+        For legal advice about your specific circumstances, consider
+        consulting a qualified legal professional.
+      </p>
+
     </section>
 
   </main>
 
+
   <footer>
+
     <p>
       Contract Shield — A Qelvryn product
     </p>
+
   </footer>
 
-<script src="script.js"></script>
+
+  <script src="script.js"></script>
 
 </body>
 </html>
