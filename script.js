@@ -4,7 +4,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const contractFile = document.getElementById("contract-file");
 
   const MIN_CHARACTERS = 100;
-  const MAX_CHARACTERS = 100000;
+  const MAX_CHARACTERS = 60000;
 
   const API_URL =
     "https://contract-shield-api.adrijachoudhury25.workers.dev/";
@@ -147,6 +147,7 @@ document.addEventListener("DOMContentLoaded", () => {
         pdfStatus.style.display = "block";
         pdfStatus.className =
           "pdf-status pdf-status-error";
+
         pdfStatus.textContent =
           "Please select a PDF file.";
 
@@ -156,6 +157,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
       pdfStatus.style.display = "block";
       pdfStatus.className = "pdf-status";
+
       pdfStatus.textContent =
         `Selected PDF: ${file.name}`;
     });
@@ -171,12 +173,14 @@ document.addEventListener("DOMContentLoaded", () => {
     if (pdfStatus) {
       pdfStatus.style.display = "block";
       pdfStatus.className = "pdf-status";
+
       pdfStatus.textContent =
         "Reading your PDF securely in your browser...";
     }
 
     try {
-      const pdfjsLib = await import(PDFJS_URL);
+      const pdfjsLib =
+        await import(PDFJS_URL);
 
       pdfjsLib.GlobalWorkerOptions.workerSrc =
         PDFJS_WORKER_URL;
@@ -224,8 +228,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
       if (
         !extractedText ||
-        extractedText.length <
-          MIN_CHARACTERS
+        extractedText.length < MIN_CHARACTERS
       ) {
         throw new Error(
           "Contract Shield could not extract enough readable text from this PDF. The document may be scanned or image-based. For now, please paste the contract text instead."
@@ -241,6 +244,7 @@ document.addEventListener("DOMContentLoaded", () => {
     } catch (error) {
       if (pdfStatus) {
         pdfStatus.style.display = "block";
+
         pdfStatus.className =
           "pdf-status pdf-status-error";
 
@@ -253,9 +257,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
-  function displayAnalysis(
-    analysis
-  ) {
+  function displayAnalysis(analysis) {
     let resultsSection =
       document.getElementById(
         "contract-analysis-results"
@@ -263,9 +265,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     if (!resultsSection) {
       resultsSection =
-        document.createElement(
-          "section"
-        );
+        document.createElement("section");
 
       resultsSection.id =
         "contract-analysis-results";
@@ -304,14 +304,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
     let cleanedAnalysis =
       analysis
-        .replace(
-          /^=+\s*$/gm,
-          ""
-        )
-        .replace(
-          /^#+\s*/gm,
-          ""
-        )
+        .replace(/^=+\s*$/gm, "")
+        .replace(/^#+\s*/gm, "")
         .trim();
 
     const sectionOnePattern =
@@ -323,9 +317,7 @@ document.addEventListener("DOMContentLoaded", () => {
       ),
     ];
 
-    if (
-      sectionOneMatches.length > 1
-    ) {
+    if (sectionOneMatches.length > 1) {
       cleanedAnalysis =
         cleanedAnalysis
           .substring(
@@ -360,9 +352,7 @@ document.addEventListener("DOMContentLoaded", () => {
         )
       ) {
         const sectionHeading =
-          document.createElement(
-            "h3"
-          );
+          document.createElement("h3");
 
         sectionHeading.className =
           "analysis-section-heading";
@@ -377,15 +367,9 @@ document.addEventListener("DOMContentLoaded", () => {
         return;
       }
 
-      if (
-        /^\*\s+/.test(
-          trimmedLine
-        )
-      ) {
+      if (/^\*\s+/.test(trimmedLine)) {
         const bullet =
-          document.createElement(
-            "p"
-          );
+          document.createElement("p");
 
         bullet.className =
           "analysis-bullet";
@@ -404,15 +388,9 @@ document.addEventListener("DOMContentLoaded", () => {
         return;
       }
 
-      if (
-        /^\+\s+/.test(
-          trimmedLine
-        )
-      ) {
+      if (/^\+\s+/.test(trimmedLine)) {
         const subBullet =
-          document.createElement(
-            "p"
-          );
+          document.createElement("p");
 
         subBullet.className =
           "analysis-sub-bullet";
@@ -510,8 +488,7 @@ document.addEventListener("DOMContentLoaded", () => {
           : "Analyze Contract";
 
       if (submitButton) {
-        submitButton.disabled =
-          true;
+        submitButton.disabled = true;
 
         submitButton.textContent =
           selectedFile
@@ -549,7 +526,7 @@ document.addEventListener("DOMContentLoaded", () => {
           MAX_CHARACTERS
         ) {
           throw new Error(
-            "This contract contains more than 100,000 characters. Very large contracts are not yet supported in a single analysis."
+            "This contract contains more than 60,000 characters. Very large contracts are not yet supported in a single analysis."
           );
         }
 
