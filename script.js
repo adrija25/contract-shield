@@ -1,14 +1,20 @@
 document.addEventListener("DOMContentLoaded", () => {
   const contractForm = document.getElementById("contract-form");
   const contractText = document.getElementById("contract-text");
+  const contractFile = document.getElementById("contract-file");
 
   const MIN_CHARACTERS = 100;
-  const MAX_CHARACTERS = 30000;
+  const MAX_CHARACTERS = 100000;
 
   const API_URL =
     "https://contract-shield-api.adrijachoudhury25.workers.dev/";
 
-  // Add Contract Shield analysis styles directly from JavaScript
+  const PDFJS_URL =
+    "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.10.38/pdf.min.mjs";
+
+  const PDFJS_WORKER_URL =
+    "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.10.38/pdf.worker.min.mjs";
+
   const analysisStyles = document.createElement("style");
 
   analysisStyles.textContent = `
@@ -75,6 +81,19 @@ document.addEventListener("DOMContentLoaded", () => {
       line-height: 1.6;
     }
 
+    .pdf-status {
+      margin-top: 0.75rem;
+      padding: 0.75rem 1rem;
+      border-radius: 8px;
+      background: #f4f7f7;
+      font-size: 0.9rem;
+      line-height: 1.5;
+    }
+
+    .pdf-status-error {
+      background: #fff3f3;
+    }
+
     @media (max-width: 768px) {
       .analysis-results {
         padding-left: 1rem;
@@ -100,286 +119,497 @@ document.addEventListener("DOMContentLoaded", () => {
     return;
   }
 
-  contractForm.addEventListener("submit", async (event) => {
-    event.preventDefault();
+  let pdfStatus = null;
 
-    const text = contractText.value.trim();
+  if (contractFile) {
+    pdfStatus = document.createElement("p");
+    pdfStatus.className = "pdf-status";
+    pdfStatus.style.display = "none";
 
-    const submitButton = contractForm.querySelector(
-      'button[type="submit"]'
+    contractFile.insertAdjacentElement(
+      "afterend",
+      pdfStatus
     );
 
-    if (!text) {
-      alert(
-        "Please paste your contract or agreement text before analyzing."
+    contractFile.addEventListener("change", () => {
+      const file = contractFile.files[0];
+
+      if (!file) {
+        pdfStatus.style.display = "none";
+        pdfStatus.textContent = "";
+        return;
+      }
+
+      if (
+        file.type !== "application/pdf" &&
+        !file.name.toLowerCase().endsWith(".pdf")
+      ) {
+        pdfStatus.style.display = "block";
+        pdfStatus.className =
+          "pdf-status pdf-status-error";
+        pdfStatus.textContent =
+          "Please select a PDF file.";
+
+        contractFile.value = "";
+        return;
+      }
+
+      pdfStatus.style.display = "block";
+      pdfStatus.className = "pdf-status";
+      pdfStatus.textContent =
+        `Selected PDF: ${file.name}`;
+    });
+  }
+
+  async function extractTextFromPDF(file) {
+    if (!file) {
+      throw new Error(
+        "Please select a PDF file."
       );
-      contractText.focus();
-      return;
     }
 
-    if (text.length < MIN_CHARACTERS) {
-      alert(
-        "The text you entered appears to be very short. Please paste at least 100 characters so Contract Shield has enough information to analyze."
-      );
-      contractText.focus();
-      return;
-    }
-
-    if (text.length > MAX_CHARACTERS) {
-      alert(
-        "This contract is too long for a single analysis. Please limit your text to 30,000 characters or analyze the most relevant section."
-      );
-      contractText.focus();
-      return;
-    }
-
-    const originalButtonText = submitButton
-      ? submitButton.textContent
-      : "Analyze Contract";
-
-    if (submitButton) {
-      submitButton.disabled = true;
-      submitButton.textContent = "Analyzing...";
+    if (pdfStatus) {
+      pdfStatus.style.display = "block";
+      pdfStatus.className = "pdf-status";
+      pdfStatus.textContent =
+        "Reading your PDF securely in your browser...";
     }
 
     try {
-      const response = await fetch(API_URL, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          contractText: text,
-        }),
-      });
+      const pdfjsLib = await import(PDFJS_URL);
 
-      const data = await response.json();
+      pdfjsLib.GlobalWorkerOptions.workerSrc =
+        PDFJS_WORKER_URL;
 
-      if (!response.ok) {
+      const arrayBuffer =
+        await file.arrayBuffer();
+
+      const loadingTask =
+        pdfjsLib.getDocument({
+          data: arrayBuffer,
+        });
+
+      const pdf =
+        await loadingTask.promise;
+
+      let extractedText = "";
+
+      for (
+        let pageNumber = 1;
+        pageNumber <= pdf.numPages;
+        pageNumber++
+      ) {
+        if (pdfStatus) {
+          pdfStatus.textContent =
+            `Reading page ${pageNumber} of ${pdf.numPages}...`;
+        }
+
+        const page =
+          await pdf.getPage(pageNumber);
+
+        const textContent =
+          await page.getTextContent();
+
+        const pageText =
+          textContent.items
+            .map((item) => item.str)
+            .join(" ");
+
+        extractedText +=
+          `\n\n--- Page ${pageNumber} ---\n\n${pageText}`;
+      }
+
+      extractedText =
+        extractedText.trim();
+
+      if (
+        !extractedText ||
+        extractedText.length <
+          MIN_CHARACTERS
+      ) {
         throw new Error(
-          data.error || "Contract analysis failed."
+          "Contract Shield could not extract enough readable text from this PDF. The document may be scanned or image-based. For now, please paste the contract text instead."
         );
       }
 
-      if (!data.analysis) {
-        throw new Error(
-          "No analysis was returned. Please try again."
-        );
+      if (pdfStatus) {
+        pdfStatus.textContent =
+          `PDF text extracted successfully: ${pdf.numPages} page${pdf.numPages === 1 ? "" : "s"} ready for analysis.`;
       }
 
-      let resultsSection =
-        document.getElementById(
-          "contract-analysis-results"
-        );
+      return extractedText;
+    } catch (error) {
+      if (pdfStatus) {
+        pdfStatus.style.display = "block";
+        pdfStatus.className =
+          "pdf-status pdf-status-error";
 
-      if (!resultsSection) {
-        resultsSection =
-          document.createElement("section");
-
-        resultsSection.id =
-          "contract-analysis-results";
-
-        resultsSection.className =
-          "analysis-results";
-
-        contractForm.insertAdjacentElement(
-          "afterend",
-          resultsSection
-        );
+        pdfStatus.textContent =
+          error.message ||
+          "Contract Shield could not read this PDF.";
       }
 
-      // Clear any previous analysis before displaying
-      // the newly generated analysis
-      resultsSection.innerHTML = "";
+      throw error;
+    }
+  }
 
-      const heading =
-        document.createElement("h2");
+  function displayAnalysis(
+    analysis
+  ) {
+    let resultsSection =
+      document.getElementById(
+        "contract-analysis-results"
+      );
 
-      heading.textContent =
-        "Your Contract Analysis";
+    if (!resultsSection) {
+      resultsSection =
+        document.createElement(
+          "section"
+        );
 
-      const disclaimer =
-        document.createElement("p");
+      resultsSection.id =
+        "contract-analysis-results";
 
-      disclaimer.className =
-        "analysis-disclaimer";
+      resultsSection.className =
+        "analysis-results";
 
-      disclaimer.textContent =
-        "This analysis is provided for general informational purposes and is not legal advice.";
+      contractForm.insertAdjacentElement(
+        "afterend",
+        resultsSection
+      );
+    }
 
-      const analysisContent =
-        document.createElement("div");
+    resultsSection.innerHTML = "";
 
-      analysisContent.className =
-        "analysis-content";
+    const heading =
+      document.createElement("h2");
 
-      // Clean raw formatting characters
-      let cleanedAnalysis = data.analysis
-        .replace(/^=+\s*$/gm, "")
-        .replace(/^#+\s*/gm, "")
+    heading.textContent =
+      "Your Contract Analysis";
+
+    const disclaimer =
+      document.createElement("p");
+
+    disclaimer.className =
+      "analysis-disclaimer";
+
+    disclaimer.textContent =
+      "This analysis is provided for general informational purposes and is not legal advice.";
+
+    const analysisContent =
+      document.createElement("div");
+
+    analysisContent.className =
+      "analysis-content";
+
+    let cleanedAnalysis =
+      analysis
+        .replace(
+          /^=+\s*$/gm,
+          ""
+        )
+        .replace(
+          /^#+\s*/gm,
+          ""
+        )
         .trim();
 
-      /*
-       * If the AI accidentally starts generating the entire
-       * report again, remove everything after the second
-       * occurrence of section 1.
-       *
-       * This prevents repeated cycles of sections 1–7
-       * from appearing in the UI.
-       */
-      const sectionOnePattern =
-        /1\.\s+PLAIN[-–—\s]?LANGUAGE\s+SUMMARY/gi;
+    const sectionOnePattern =
+      /1\.\s+PLAIN[-–—\s]?LANGUAGE\s+SUMMARY/gi;
 
-      const sectionOneMatches = [
-        ...cleanedAnalysis.matchAll(
-          sectionOnePattern
-        ),
-      ];
+    const sectionOneMatches = [
+      ...cleanedAnalysis.matchAll(
+        sectionOnePattern
+      ),
+    ];
 
-      if (sectionOneMatches.length > 1) {
-        cleanedAnalysis =
-          cleanedAnalysis
-            .substring(
-              0,
-              sectionOneMatches[1].index
-            )
-            .trim();
+    if (
+      sectionOneMatches.length > 1
+    ) {
+      cleanedAnalysis =
+        cleanedAnalysis
+          .substring(
+            0,
+            sectionOneMatches[1].index
+          )
+          .trim();
+    }
+
+    const lines =
+      cleanedAnalysis.split("\n");
+
+    lines.forEach((line) => {
+      const trimmedLine =
+        line.trim();
+
+      if (!trimmedLine) {
+        return;
       }
 
-      const lines =
-        cleanedAnalysis.split("\n");
+      if (
+        /^ANALYSIS OF CONTRACT$/i.test(
+          trimmedLine
+        )
+      ) {
+        return;
+      }
 
-      lines.forEach((line) => {
-        const trimmedLine =
-          line.trim();
-
-        if (!trimmedLine) {
-          return;
-        }
-
-        // Remove standalone repeated report titles
-        if (
-          /^ANALYSIS OF CONTRACT$/i.test(
-            trimmedLine
-          )
-        ) {
-          return;
-        }
-
-        // Detect numbered Contract Shield headings
-        if (
-          /^[1-7]\.\s+[A-Z][A-Z\s\-–—&]+$/.test(
-            trimmedLine
-          )
-        ) {
-          const sectionHeading =
-            document.createElement("h3");
-
-          sectionHeading.className =
-            "analysis-section-heading";
-
-          sectionHeading.textContent =
-            trimmedLine;
-
-          analysisContent.appendChild(
-            sectionHeading
+      if (
+        /^[1-7]\.\s+[A-Z][A-Z\s\-–—&]+$/.test(
+          trimmedLine
+        )
+      ) {
+        const sectionHeading =
+          document.createElement(
+            "h3"
           );
 
-          return;
-        }
+        sectionHeading.className =
+          "analysis-section-heading";
 
-        // Main bullet points
-        if (/^\*\s+/.test(trimmedLine)) {
-          const bullet =
-            document.createElement("p");
-
-          bullet.className =
-            "analysis-bullet";
-
-          bullet.textContent =
-            "• " +
-            trimmedLine.replace(
-              /^\*\s+/,
-              ""
-            );
-
-          analysisContent.appendChild(
-            bullet
-          );
-
-          return;
-        }
-
-        // Secondary bullet points
-        if (/^\+\s+/.test(trimmedLine)) {
-          const subBullet =
-            document.createElement("p");
-
-          subBullet.className =
-            "analysis-sub-bullet";
-
-          subBullet.textContent =
-            "• " +
-            trimmedLine.replace(
-              /^\+\s+/,
-              ""
-            );
-
-          analysisContent.appendChild(
-            subBullet
-          );
-
-          return;
-        }
-
-        // Standard paragraph
-        const paragraph =
-          document.createElement("p");
-
-        paragraph.className =
-          "analysis-paragraph";
-
-        paragraph.textContent =
+        sectionHeading.textContent =
           trimmedLine;
 
         analysisContent.appendChild(
-          paragraph
+          sectionHeading
         );
-      });
 
-      resultsSection.appendChild(
-        heading
-      );
+        return;
+      }
 
-      resultsSection.appendChild(
-        disclaimer
-      );
+      if (
+        /^\*\s+/.test(
+          trimmedLine
+        )
+      ) {
+        const bullet =
+          document.createElement(
+            "p"
+          );
 
-      resultsSection.appendChild(
-        analysisContent
-      );
+        bullet.className =
+          "analysis-bullet";
 
-      resultsSection.scrollIntoView({
-        behavior: "smooth",
-        block: "start",
-      });
-    } catch (error) {
-      console.error(
-        "Contract Shield analysis error:",
-        error
-      );
+        bullet.textContent =
+          "• " +
+          trimmedLine.replace(
+            /^\*\s+/,
+            ""
+          );
 
-      alert(
-        error.message ||
-          "Contract analysis failed. Please try again."
+        analysisContent.appendChild(
+          bullet
+        );
+
+        return;
+      }
+
+      if (
+        /^\+\s+/.test(
+          trimmedLine
+        )
+      ) {
+        const subBullet =
+          document.createElement(
+            "p"
+          );
+
+        subBullet.className =
+          "analysis-sub-bullet";
+
+        subBullet.textContent =
+          "• " +
+          trimmedLine.replace(
+            /^\+\s+/,
+            ""
+          );
+
+        analysisContent.appendChild(
+          subBullet
+        );
+
+        return;
+      }
+
+      const paragraph =
+        document.createElement("p");
+
+      paragraph.className =
+        "analysis-paragraph";
+
+      paragraph.textContent =
+        trimmedLine;
+
+      analysisContent.appendChild(
+        paragraph
       );
-    } finally {
+    });
+
+    resultsSection.appendChild(
+      heading
+    );
+
+    resultsSection.appendChild(
+      disclaimer
+    );
+
+    resultsSection.appendChild(
+      analysisContent
+    );
+
+    resultsSection.scrollIntoView({
+      behavior: "smooth",
+      block: "start",
+    });
+  }
+
+  contractForm.addEventListener(
+    "submit",
+    async (event) => {
+      event.preventDefault();
+
+      const pastedText =
+        contractText.value.trim();
+
+      const selectedFile =
+        contractFile &&
+        contractFile.files.length > 0
+          ? contractFile.files[0]
+          : null;
+
+      const submitButton =
+        contractForm.querySelector(
+          'button[type="submit"]'
+        );
+
+      if (
+        !pastedText &&
+        !selectedFile
+      ) {
+        alert(
+          "Please upload a PDF contract or paste your contract text before analyzing."
+        );
+
+        return;
+      }
+
+      if (
+        pastedText &&
+        selectedFile
+      ) {
+        alert(
+          "Please use one input method at a time: either upload a PDF or paste contract text."
+        );
+
+        return;
+      }
+
+      const originalButtonText =
+        submitButton
+          ? submitButton.textContent
+          : "Analyze Contract";
+
       if (submitButton) {
-        submitButton.disabled = false;
+        submitButton.disabled =
+          true;
 
         submitButton.textContent =
-          originalButtonText;
+          selectedFile
+            ? "Reading PDF..."
+            : "Analyzing...";
+      }
+
+      try {
+        let textToAnalyze =
+          pastedText;
+
+        if (selectedFile) {
+          textToAnalyze =
+            await extractTextFromPDF(
+              selectedFile
+            );
+
+          if (submitButton) {
+            submitButton.textContent =
+              "Analyzing...";
+          }
+        }
+
+        if (
+          textToAnalyze.length <
+          MIN_CHARACTERS
+        ) {
+          throw new Error(
+            "The contract text appears to be too short. Please provide at least 100 characters for analysis."
+          );
+        }
+
+        if (
+          textToAnalyze.length >
+          MAX_CHARACTERS
+        ) {
+          throw new Error(
+            "This contract contains more than 100,000 characters. Very large contracts are not yet supported in a single analysis."
+          );
+        }
+
+        const response =
+          await fetch(
+            API_URL,
+            {
+              method: "POST",
+
+              headers: {
+                "Content-Type":
+                  "application/json",
+              },
+
+              body:
+                JSON.stringify({
+                  contractText:
+                    textToAnalyze,
+                }),
+            }
+          );
+
+        const data =
+          await response.json();
+
+        if (!response.ok) {
+          throw new Error(
+            data.error ||
+            "Contract analysis failed."
+          );
+        }
+
+        if (!data.analysis) {
+          throw new Error(
+            "No analysis was returned. Please try again."
+          );
+        }
+
+        displayAnalysis(
+          data.analysis
+        );
+      } catch (error) {
+        console.error(
+          "Contract Shield analysis error:",
+          error
+        );
+
+        alert(
+          error.message ||
+          "Contract analysis failed. Please try again."
+        );
+      } finally {
+        if (submitButton) {
+          submitButton.disabled =
+            false;
+
+          submitButton.textContent =
+            originalButtonText;
+        }
       }
     }
-  });
+  );
 });
